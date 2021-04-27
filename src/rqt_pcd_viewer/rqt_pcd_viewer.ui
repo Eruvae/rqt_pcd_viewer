@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>837</width>
-    <height>509</height>
+    <width>756</width>
+    <height>441</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -20,7 +20,7 @@
    <string>Form</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0">
+   <item row="0" column="0" colspan="4">
     <widget class="QTreeView" name="fileTreeViewLeft">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
@@ -30,13 +30,23 @@
      </property>
      <property name="maximumSize">
       <size>
-       <width>400</width>
+       <width>220</width>
        <height>16777215</height>
       </size>
      </property>
     </widget>
    </item>
-   <item row="0" column="8">
+   <item row="0" column="4">
+    <widget class="QVTKWidget" name="pcdView" native="true">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="5" colspan="4">
     <widget class="QTreeView" name="fileTreeViewRight">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
@@ -46,7 +56,7 @@
      </property>
      <property name="maximumSize">
       <size>
-       <width>400</width>
+       <width>220</width>
        <height>16777215</height>
       </size>
      </property>
@@ -180,9 +190,6 @@
       <string>Select Folder</string>
      </property>
     </widget>
-   </item>
-   <item row="0" column="3" colspan="3">
-    <widget class="QVTKWidget" name="pcdView" native="true"/>
    </item>
   </layout>
  </widget>

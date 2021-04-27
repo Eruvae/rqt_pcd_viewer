@@ -65,7 +65,6 @@ void RqtPcdViewer::initPlugin(qt_gui_cpp::PluginContext& context)
   viewer.reset(new pcl::visualization::PCLVisualizer("PCD Viewer", false));
   ui.pcdView->SetRenderWindow(viewer->getRenderWindow());
   viewer->setupInteractor(ui.pcdView->GetInteractor(), ui.pcdView->GetRenderWindow());
-  ui.pcdView->update();
 
   int vp1, vp2;
 
@@ -78,6 +77,8 @@ void RqtPcdViewer::initPlugin(qt_gui_cpp::PluginContext& context)
   viewer->setBackgroundColor (0.1, 0.1, 0.1, vp2);
   viewer->addText ("PC2", 10, 10, "vp2cap", vp2);
   vp_map[1] = vp2;
+
+  ui.pcdView->update();
 
   ROS_INFO_STREAM("Viewports: " << vp1 << ", " << vp2);
 
@@ -103,10 +104,12 @@ void RqtPcdViewer::shutdownPlugin()
 
 void RqtPcdViewer::saveSettings(qt_gui_cpp::Settings& plugin_settings, qt_gui_cpp::Settings& instance_settings) const
 {
+  instance_settings.setValue("lastFolder", settings.lastFolder);
 }
 
 void RqtPcdViewer::restoreSettings(const qt_gui_cpp::Settings& plugin_settings, const qt_gui_cpp::Settings& instance_settings)
 {
+  settings.lastFolder = instance_settings.value("lastFolder", QString()).toString();
   pluginSettingsToUi();
   applySettings();
 }
@@ -122,9 +125,11 @@ void RqtPcdViewer::triggerConfiguration()
 
 void RqtPcdViewer::on_selectFolderButton_clicked(size_t vpind)
 {
-  QString dir_path = QFileDialog::getExistingDirectory(widget, QString());
+  QString dir_path = QFileDialog::getExistingDirectory(widget, QString(), settings.lastFolder);
   if (dir_path.isEmpty())
     return;
+
+  settings.lastFolder = dir_path;
 
   clearSelectedPcd(vpind);
 
@@ -210,6 +215,7 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index, size_t vpind)
   viewer->removeAllPointClouds(vp_map[vpind]);
   viewer->addPointCloud<pcl::PointXYZRGB>(cloud, "pc" + std::to_string(vpind), vp_map[vpind]);
   viewer->spinOnce(1, true);
+  ui.pcdView->update();
 
   setSelectedPcd(index, vpind);
 
@@ -230,6 +236,10 @@ void RqtPcdViewer::setSelectedPcd(QModelIndex index, size_t vpind)
 
 void RqtPcdViewer::clearSelectedPcd(size_t vpind)
 {
+  viewer->removeAllPointClouds(vp_map[vpind]);
+  viewer->spinOnce(1, true);
+  ui.pcdView->update();
+
   selected_pcd[vpind] = QModelIndex();
   pcd_loaded[vpind] = false;
   previousPcdButton[vpind]->setEnabled(false);

@@ -27,7 +27,7 @@ static constexpr size_t NUM_VIEWS = 2;
 
 struct InstanceSettings
 {
-  QStringList lastFolders;
+  QString lastFolder;
 };
 
 class RqtPcdViewer;
