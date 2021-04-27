@@ -1,0 +1,22 @@
+<library path="lib/librqt_pcd_viewer">
+  <class name="rqt_pcd_viewer/RqtPcdViewer" type="rqt_pcd_viewer::RqtPcdViewer" base_class_type="rqt_gui_cpp::Plugin">
+    <description>
+      A plugin to publish images from a folder.
+    </description>
+    <qtgui>
+      <group>
+        <label>Visualization</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins related to visualization.</statustip>
+      </group>
+      <!-- optional grouping...
+      <group>
+        <label>Subgroup</label>
+      </group>
+      -->
+      <label>PCD Visualizer</label>
+      <icon type="theme">image-x-generic</icon>
+      <statustip>A plugin to visualize saved pointclouds.</statustip>
+    </qtgui>
+  </class>
+</library>
