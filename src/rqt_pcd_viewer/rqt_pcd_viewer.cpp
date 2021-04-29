@@ -66,21 +66,15 @@ void RqtPcdViewer::initPlugin(qt_gui_cpp::PluginContext& context)
   ui.pcdView->SetRenderWindow(viewer->getRenderWindow());
   viewer->setupInteractor(ui.pcdView->GetInteractor(), ui.pcdView->GetRenderWindow());
 
-  int vp1, vp2;
+  viewer->createViewPort(0.0, 0.0, 0.5, 1.0, viewport[0]);
+  viewer->setBackgroundColor (0, 0, 0, viewport[0]);
+  viewer->addText ("PC1", 10, 10, "vp1cap", viewport[0]);
 
-  viewer->createViewPort(0.0, 0.0, 0.5, 1.0, vp1);
-  viewer->setBackgroundColor (0, 0, 0, vp1);
-  viewer->addText ("PC1", 10, 10, "vp1cap", vp1);
-  vp_map[0] = vp1;
-
-  viewer->createViewPort(0.5, 0.0, 1.0, 1.0, vp2);
-  viewer->setBackgroundColor (0.1, 0.1, 0.1, vp2);
-  viewer->addText ("PC2", 10, 10, "vp2cap", vp2);
-  vp_map[1] = vp2;
+  viewer->createViewPort(0.5, 0.0, 1.0, 1.0, viewport[1]);
+  viewer->setBackgroundColor (0.1, 0.1, 0.1, viewport[1]);
+  viewer->addText ("PC2", 10, 10, "vp2cap", viewport[1]);
 
   ui.pcdView->update();
-
-  ROS_INFO_STREAM("Viewports: " << vp1 << ", " << vp2);
 
   for (size_t i=0; i < NUM_VIEWS; i++)
   {
@@ -212,8 +206,8 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index, size_t vpind)
     return false;
   }
 
-  viewer->removeAllPointClouds(vp_map[vpind]);
-  viewer->addPointCloud<pcl::PointXYZRGB>(cloud, "pc" + std::to_string(vpind), vp_map[vpind]);
+  viewer->removeAllPointClouds(viewport[vpind]);
+  viewer->addPointCloud<pcl::PointXYZRGB>(cloud, "pc" + std::to_string(vpind), viewport[vpind]);
   viewer->spinOnce(1, true);
   ui.pcdView->update();
 
@@ -236,7 +230,7 @@ void RqtPcdViewer::setSelectedPcd(QModelIndex index, size_t vpind)
 
 void RqtPcdViewer::clearSelectedPcd(size_t vpind)
 {
-  viewer->removeAllPointClouds(vp_map[vpind]);
+  viewer->removeAllPointClouds(viewport[vpind]);
   viewer->spinOnce(1, true);
   ui.pcdView->update();
 

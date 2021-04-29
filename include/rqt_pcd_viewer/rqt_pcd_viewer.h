@@ -9,7 +9,6 @@
 #include <QModelIndex>
 #include <QString>
 #include <QStringList>
-#include <unordered_map>
 
 #include <ros/ros.h>
 #include <rqt_gui_cpp/plugin.h>
@@ -92,7 +91,7 @@ private:
   bool pcd_loaded[NUM_VIEWS];
   QModelIndex selected_pcd[NUM_VIEWS];
 
-  std::unordered_map<size_t, int> vp_map;
+  int viewport[NUM_VIEWS];
 
   // Settings
   InstanceSettings settings;
