@@ -4,6 +4,7 @@
 #include <QFileDialog>
 #include <QInputDialog>
 #include <pcl/io/io_exception.h>
+#include <unordered_set>
 
 namespace rqt_pcd_viewer
 {
@@ -194,7 +195,7 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index, size_t vpind)
 
   QString path = folder_model[vpind]->filePath(index);
 
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PCLPointCloud2::Ptr cloud(new pcl::PCLPointCloud2);
 
   try
   {
@@ -206,8 +207,49 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index, size_t vpind)
     return false;
   }
 
+  /* Color Handlers:
+   * PointCloudColorHandlerRandom (const PointCloudConstPtr &cloud)
+   * PointCloudColorHandlerCustom (const PointCloudConstPtr &cloud, double r, double g, double b)
+   * PointCloudColorHandlerRGBField (const PointCloudConstPtr &cloud);
+   * PointCloudColorHandlerHSVField (const PointCloudConstPtr &cloud);
+   * PointCloudColorHandlerGenericField (const PointCloudConstPtr &cloud, const std::string &field_name);
+   * PointCloudColorHandlerRGBAField (const PointCloudConstPtr &cloud);
+   * PointCloudColorHandlerLabelField (const PointCloudConstPtr &cloud, const bool static_mapping = true);
+   */
+  pcl::visualization::PointCloudColorHandler<pcl::PCLPointCloud2>::Ptr cloud_ch;
+  std::unordered_set<std::string> field_names;
+  for (const auto &field : cloud->fields) field_names.insert(field.name);
+  if (field_names.find("label") != field_names.end())
+  {
+    cloud_ch.reset(new pcl::visualization::PointCloudColorHandlerLabelField<pcl::PCLPointCloud2>(cloud));
+  }
+  else if (field_names.find("rgba") != field_names.end())
+  {
+    cloud_ch.reset(new pcl::visualization::PointCloudColorHandlerRGBAField<pcl::PCLPointCloud2>(cloud));
+  }
+  else if (field_names.find("hsv") != field_names.end())
+  {
+    cloud_ch.reset(new pcl::visualization::PointCloudColorHandlerHSVField<pcl::PCLPointCloud2>(cloud));
+  }
+  else if (field_names.find("rgb") != field_names.end())
+  {
+    cloud_ch.reset(new pcl::visualization::PointCloudColorHandlerRGBField<pcl::PCLPointCloud2>(cloud));
+  }
+  else
+  {
+    cloud_ch.reset(new pcl::visualization::PointCloudColorHandlerRandom<pcl::PCLPointCloud2>(cloud));
+  }
+
+  pcl::visualization::PointCloudGeometryHandler<pcl::PCLPointCloud2>::Ptr cloud_gh(new pcl::visualization::PointCloudGeometryHandlerXYZ<pcl::PCLPointCloud2>(cloud));
+
+  const Eigen::Vector4f sensor_origin;
+  const Eigen::Quaternion<float> sensor_orientation;
+
   viewer->removeAllPointClouds(viewport[vpind]);
-  viewer->addPointCloud<pcl::PointXYZRGB>(cloud, "pc" + std::to_string(vpind), viewport[vpind]);
+  viewer->addPointCloud(cloud, cloud_gh, cloud_ch, sensor_origin, sensor_orientation, "pc" + std::to_string(vpind), viewport[vpind]);
+  viewer->initCameraParameters();
+  viewer->resetCameraViewpoint("pc" + std::to_string(vpind));
+  viewer->resetCamera();
   viewer->spinOnce(1, true);
   ui.pcdView->update();
 
@@ -216,6 +258,9 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index, size_t vpind)
   previousPcdButton[vpind]->setEnabled(true);
   nextPcdButton[vpind]->setEnabled(true);
   pcd_loaded[vpind] = true;
+
+  ROS_INFO_STREAM("New PCD loaded");
+
   return true;
 }
 
