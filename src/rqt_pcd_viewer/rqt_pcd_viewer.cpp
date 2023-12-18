@@ -103,7 +103,6 @@ void RqtPcdViewer::triggerConfiguration()
 
 void RqtPcdViewer::initializeViewer()
 {
-  ui.pcdView->setVisible(true);
   viewer.reset(new pcl::visualization::PCLVisualizer("PCD Viewer", false));
   ui.pcdView->SetRenderWindow(viewer->getRenderWindow());
   viewer->setupInteractor(ui.pcdView->GetInteractor(), ui.pcdView->GetRenderWindow());
@@ -111,19 +110,29 @@ void RqtPcdViewer::initializeViewer()
   viewer->createViewPort(0.0, 0.0, 1.0, 1.0, viewport);
   viewer->setBackgroundColor (0, 0, 0, viewport);
   viewer->addText ("PC", 10, 10, "vpcap", viewport);
+  viewer->initCameraParameters();
 
-  ui.pcdView->update();
+  ui.pcdView->setVisible(true);
+  ui.fileTreeView->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Expanding);
+  ui.selectFolderButton->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+  
+  widget->update();
+
   viewer_initialized = true;
 }
 
 void RqtPcdViewer::deinitializeViewer()
 {
   viewer->removeAllPointClouds(viewport);
-
   viewer.reset();
-  viewer_initialized = false;
 
   ui.pcdView->setVisible(false);
+  ui.fileTreeView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+  ui.selectFolderButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+  
+  widget->update();
+
+  viewer_initialized = false; 
 }
 
 void RqtPcdViewer::on_selectFolderButton_clicked()
@@ -321,9 +330,9 @@ void RqtPcdViewer::visualizePointcloud()
   const Eigen::Quaternion<float> sensor_orientation;
 
   viewer->removeAllPointClouds(viewport);
+  //ROS_INFO_STREAM("PC size: " << cloud->width << ", " << cloud->height);
   viewer->addPointCloud(cloud, cloud_gh, cloud_ch, sensor_origin, sensor_orientation, "pc", viewport);
-  viewer->initCameraParameters();
-  viewer->resetCameraViewpoint("pc");
+  //viewer->resetCameraViewpoint("pc"); // sometimes causes segfault
   viewer->resetCamera();
   viewer->spinOnce(1, true);
   ui.pcdView->update();
