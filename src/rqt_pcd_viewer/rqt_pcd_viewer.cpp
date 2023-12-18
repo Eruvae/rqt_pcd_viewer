@@ -27,6 +27,7 @@ RqtPcdViewer::RqtPcdViewer() :
   rqt_gui_cpp::Plugin(),
   publishingTimer(this),
   cloud(nullptr),
+  viewer_initialized(false),
   widget(Q_NULLPTR),
   viewer(Q_NULLPTR)
 {
@@ -48,15 +49,15 @@ void RqtPcdViewer::initPlugin(qt_gui_cpp::PluginContext& context)
   // add widget to the user interface
   context.addWidget(widget);
 
-  viewer.reset(new pcl::visualization::PCLVisualizer("PCD Viewer", false));
-  ui.pcdView->SetRenderWindow(viewer->getRenderWindow());
-  viewer->setupInteractor(ui.pcdView->GetInteractor(), ui.pcdView->GetRenderWindow());
-
-  viewer->createViewPort(0.0, 0.0, 1.0, 1.0, viewport);
-  viewer->setBackgroundColor (0, 0, 0, viewport);
-  viewer->addText ("PC", 10, 10, "vpcap", viewport);
-
-  ui.pcdView->update();
+  if (ui.visualizeCheckBox->isChecked())
+  {
+    ui.pcdView->setVisible(true);
+    initializeViewer();
+  }
+  else
+  {
+    ui.pcdView->setVisible(false);
+  }
 
   pointcloud_pub = getNodeHandle().advertise<sensor_msgs::PointCloud2>(ui.topicLineEdit->text().toStdString(), 1);
 
@@ -67,6 +68,7 @@ void RqtPcdViewer::initPlugin(qt_gui_cpp::PluginContext& context)
   connect(ui.startPublishButton, &QAbstractButton::clicked, this, &RqtPcdViewer::startPublishing);
   connect(ui.stopPublishButton, &QAbstractButton::clicked, this, &RqtPcdViewer::stopPublishing);
   connect(ui.topicLineEdit, &QLineEdit::textChanged, this, &RqtPcdViewer::on_topicLineEdit_textChanged);
+  connect(ui.visualizeCheckBox, &QCheckBox::toggled, this, &RqtPcdViewer::on_visualizeCheckBox_toggled);
   connect(&publishingTimer, &QTimer::timeout, this, &RqtPcdViewer::on_publishingTimer_timeout);
 
 }
@@ -97,6 +99,31 @@ bool RqtPcdViewer::hasConfiguration() const
 
 void RqtPcdViewer::triggerConfiguration()
 {
+}
+
+void RqtPcdViewer::initializeViewer()
+{
+  ui.pcdView->setVisible(true);
+  viewer.reset(new pcl::visualization::PCLVisualizer("PCD Viewer", false));
+  ui.pcdView->SetRenderWindow(viewer->getRenderWindow());
+  viewer->setupInteractor(ui.pcdView->GetInteractor(), ui.pcdView->GetRenderWindow());
+
+  viewer->createViewPort(0.0, 0.0, 1.0, 1.0, viewport);
+  viewer->setBackgroundColor (0, 0, 0, viewport);
+  viewer->addText ("PC", 10, 10, "vpcap", viewport);
+
+  ui.pcdView->update();
+  viewer_initialized = true;
+}
+
+void RqtPcdViewer::deinitializeViewer()
+{
+  viewer->removeAllPointClouds(viewport);
+
+  viewer.reset();
+  viewer_initialized = false;
+
+  ui.pcdView->setVisible(false);
 }
 
 void RqtPcdViewer::on_selectFolderButton_clicked()
@@ -136,15 +163,29 @@ void RqtPcdViewer::on_topicLineEdit_textChanged(const QString &topic)
   pointcloud_pub = getNodeHandle().advertise<sensor_msgs::PointCloud2>(topic.toStdString(), 1);
 }
 
+void RqtPcdViewer::on_visualizeCheckBox_toggled(bool checked)
+{
+  if (checked)
+  {
+    if (!viewer_initialized)
+      initializeViewer();
+  }
+  else
+  {
+    if (viewer_initialized)
+      deinitializeViewer();
+  }
+}
+
 void RqtPcdViewer::on_previousPcdButton_clicked()
 {
   if (!selected_pcd.isValid())
     return;
 
-  int num_imgs_in_folder = folder_model->rowCount(selected_pcd.parent());
+  int num_files_in_folder = folder_model->rowCount(selected_pcd.parent());
   int item_row = selected_pcd.row();
 
-  auto previous_row = [&](int row) { return row > 0 ? row - 1 : num_imgs_in_folder - 1; };
+  auto previous_row = [&](int row) { return row > 0 ? row - 1 : num_files_in_folder - 1; };
 
   for (int cur_row = previous_row(item_row); cur_row != item_row; cur_row = previous_row(cur_row))
   {
@@ -159,10 +200,10 @@ void RqtPcdViewer::on_nextPcdButton_clicked()
   if (!selected_pcd.isValid())
     return;
 
-  int num_imgs_in_folder = folder_model->rowCount(selected_pcd.parent());
+  int num_files_in_folder = folder_model->rowCount(selected_pcd.parent());
   int item_row = selected_pcd.row();
 
-  auto next_row = [&](int row) { return (row + 1) % num_imgs_in_folder; };
+  auto next_row = [&](int row) { return (row + 1) % num_files_in_folder; };
 
   for (int cur_row = next_row(item_row); cur_row != item_row; cur_row = next_row(cur_row))
   {
@@ -225,6 +266,22 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index)
     return false;
   }
 
+  if (viewer_initialized)
+  {
+    visualizePointcloud();
+  }
+
+  setSelectedPcd(index);
+
+  ui.previousPcdButton->setEnabled(true);
+  ui.nextPcdButton->setEnabled(true);
+  pcd_loaded = true;
+
+  return true;
+}
+
+void RqtPcdViewer::visualizePointcloud()
+{
   /* Color Handlers:
    * PointCloudColorHandlerRandom (const PointCloudConstPtr &cloud)
    * PointCloudColorHandlerCustom (const PointCloudConstPtr &cloud, double r, double g, double b)
@@ -270,16 +327,6 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index)
   viewer->resetCamera();
   viewer->spinOnce(1, true);
   ui.pcdView->update();
-
-  setSelectedPcd(index);
-
-  ui.previousPcdButton->setEnabled(true);
-  ui.nextPcdButton->setEnabled(true);
-  pcd_loaded = true;
-
-  ROS_INFO_STREAM("New PCD loaded");
-
-  return true;
 }
 
 void RqtPcdViewer::publishPointcloud()
@@ -305,9 +352,13 @@ void RqtPcdViewer::setSelectedPcd(QModelIndex index)
 
 void RqtPcdViewer::clearSelectedPcd()
 {
-  viewer->removeAllPointClouds(viewport);
-  viewer->spinOnce(1, true);
-  ui.pcdView->update();
+  if (viewer_initialized)
+  {
+    viewer->removeAllPointClouds(viewport);
+    viewer->spinOnce(1, true);
+    ui.pcdView->update();
+  }
+  
 
   selected_pcd = QModelIndex();
   pcd_loaded = false;

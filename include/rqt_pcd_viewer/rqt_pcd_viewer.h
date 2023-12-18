@@ -64,6 +64,7 @@ private slots:
   void on_previousPcdButton_clicked();
   void on_publishingTimer_timeout();
   void on_topicLineEdit_textChanged(const QString &topic);
+  void on_visualizeCheckBox_toggled(bool checked);
   void startPublishing();
   void stopPublishing();
 
@@ -73,7 +74,12 @@ private:
   pcl::PCLPointCloud2::Ptr cloud;
   ros::Publisher pointcloud_pub;
 
+  bool viewer_initialized;
+  void initializeViewer();
+  void deinitializeViewer();
+
   bool loadPcd(const QModelIndex &index);
+  void visualizePointcloud();
   void publishPointcloud();
   void setSelectedPcd(QModelIndex index);
   void clearSelectedPcd();
