@@ -22,8 +22,6 @@
 namespace rqt_pcd_viewer
 {
 
-static constexpr size_t NUM_VIEWS = 2;
-
 struct InstanceSettings
 {
   QString lastFolder;
@@ -59,15 +57,15 @@ public:
   virtual void triggerConfiguration();
 
 private slots:
-  void on_selectFolderButton_clicked(size_t vpind);
-  void on_fileTreeView_doubleClicked(const QModelIndex &index, size_t vpind);
-  void on_nextPcdButton_clicked(size_t vpind);
-  void on_previousPcdButton_clicked(size_t vpind);
+  void on_selectFolderButton_clicked();
+  void on_fileTreeView_doubleClicked(const QModelIndex &index);
+  void on_nextPcdButton_clicked();
+  void on_previousPcdButton_clicked();
 
 private:
-  bool loadPcd(const QModelIndex &index, size_t vpind);
-  void setSelectedPcd(QModelIndex index, size_t vpind);
-  void clearSelectedPcd(size_t vpind);
+  bool loadPcd(const QModelIndex &index);
+  void setSelectedPcd(QModelIndex index);
+  void clearSelectedPcd();
   void pluginSettingsToUi();
   void uiToPluginSettings();
   void applySettings();
@@ -78,20 +76,13 @@ private:
 
   pcl::visualization::PCLVisualizer::Ptr viewer;
 
-  QFileSystemModel* folder_model[NUM_VIEWS];
-
-  // GUI elements
-  QTreeView *fileTreeView[NUM_VIEWS];
-  QPushButton *selectFolderButton[NUM_VIEWS];
-  QToolButton *previousPcdButton[NUM_VIEWS];
-  QLabel *curPcdLabel[NUM_VIEWS];
-  QToolButton *nextPcdButton[NUM_VIEWS];
+  QFileSystemModel* folder_model;
 
   // Currently loaded pcds
-  bool pcd_loaded[NUM_VIEWS];
-  QModelIndex selected_pcd[NUM_VIEWS];
+  bool pcd_loaded;
+  QModelIndex selected_pcd;
 
-  int viewport[NUM_VIEWS];
+  int viewport;
 
   // Settings
   InstanceSettings settings;

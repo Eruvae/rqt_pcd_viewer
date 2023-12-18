@@ -27,17 +27,10 @@ RqtPcdViewer::RqtPcdViewer() :
   widget(Q_NULLPTR),
   viewer(Q_NULLPTR)
 {
-  for (size_t i=0; i < NUM_VIEWS; i++)
-  {
-    folder_model[i] = nullptr;
-    pcd_loaded[i] = false;
-    selected_pcd[i] = QModelIndex();
-    fileTreeView[i] = nullptr;
-    selectFolderButton[i] = nullptr;
-    previousPcdButton[i] = nullptr;
-    curPcdLabel[i] = nullptr;
-    nextPcdButton[i] = nullptr;
-  }
+  folder_model = nullptr;
+  pcd_loaded = false;
+  selected_pcd = QModelIndex();
+  
   setObjectName("RqtPcdViewer");
 }
 
@@ -52,49 +45,28 @@ void RqtPcdViewer::initPlugin(qt_gui_cpp::PluginContext& context)
   // add widget to the user interface
   context.addWidget(widget);
 
-  fileTreeView[0] = ui.fileTreeViewLeft;
-  fileTreeView[1] = ui.fileTreeViewRight;
-  selectFolderButton[0] = ui.selectFolderButtonLeft;
-  selectFolderButton[1] = ui.selectFolderButtonRight;
-  previousPcdButton[0] = ui.previousPcdButtonLeft;
-  previousPcdButton[1] = ui.previousPcdButtonRight;
-  curPcdLabel[0] = ui.curPcdLabelLeft;
-  curPcdLabel[1] = ui.curPcdLabelRight;
-  nextPcdButton[0] = ui.nextPcdButtonLeft;
-  nextPcdButton[1] = ui.nextPcdButtonRight;
-
   viewer.reset(new pcl::visualization::PCLVisualizer("PCD Viewer", false));
   ui.pcdView->SetRenderWindow(viewer->getRenderWindow());
   viewer->setupInteractor(ui.pcdView->GetInteractor(), ui.pcdView->GetRenderWindow());
 
-  viewer->createViewPort(0.0, 0.0, 0.5, 1.0, viewport[0]);
-  viewer->setBackgroundColor (0, 0, 0, viewport[0]);
-  viewer->addText ("PC1", 10, 10, "vp1cap", viewport[0]);
-
-  viewer->createViewPort(0.5, 0.0, 1.0, 1.0, viewport[1]);
-  viewer->setBackgroundColor (0.1, 0.1, 0.1, viewport[1]);
-  viewer->addText ("PC2", 10, 10, "vp2cap", viewport[1]);
+  viewer->createViewPort(0.0, 0.0, 1.0, 1.0, viewport);
+  viewer->setBackgroundColor (0, 0, 0, viewport);
+  viewer->addText ("PC", 10, 10, "vpcap", viewport);
 
   ui.pcdView->update();
 
-  for (size_t i=0; i < NUM_VIEWS; i++)
-  {
-    connect(selectFolderButton[i], &QAbstractButton::clicked, this, boost::bind(&RqtPcdViewer::on_selectFolderButton_clicked, this, i));
-    connect(fileTreeView[i], &QAbstractItemView::doubleClicked, this, boost::bind(&RqtPcdViewer::on_fileTreeView_doubleClicked, this, _1, i));
-    connect(previousPcdButton[i], &QAbstractButton::clicked, this, boost::bind(&RqtPcdViewer::on_previousPcdButton_clicked, this, i));
-    connect(nextPcdButton[i], &QAbstractButton::clicked, this, boost::bind(&RqtPcdViewer::on_nextPcdButton_clicked, this, i));
-  }
+  connect(ui.selectFolderButton, &QAbstractButton::clicked, this, &RqtPcdViewer::on_selectFolderButton_clicked);
+  connect(ui.fileTreeView, &QAbstractItemView::doubleClicked, this, &RqtPcdViewer::on_fileTreeView_doubleClicked);
+  connect(ui.previousPcdButton, &QAbstractButton::clicked, this, &RqtPcdViewer::on_previousPcdButton_clicked);
+  connect(ui.nextPcdButton, &QAbstractButton::clicked, this, &RqtPcdViewer::on_nextPcdButton_clicked);
 
 }
 
 void RqtPcdViewer::shutdownPlugin()
 {
   // unregister all publishers here
-  for (size_t i=0; i < NUM_VIEWS; i++)
-  {
-    if (folder_model[i])
-      delete folder_model[i];
-  }
+  if (folder_model)
+    delete folder_model;
 }
 
 void RqtPcdViewer::saveSettings(qt_gui_cpp::Settings& plugin_settings, qt_gui_cpp::Settings& instance_settings) const
@@ -118,7 +90,7 @@ void RqtPcdViewer::triggerConfiguration()
 {
 }
 
-void RqtPcdViewer::on_selectFolderButton_clicked(size_t vpind)
+void RqtPcdViewer::on_selectFolderButton_clicked()
 {
   QString dir_path = QFileDialog::getExistingDirectory(widget, QString(), settings.lastFolder);
   if (dir_path.isEmpty())
@@ -126,74 +98,74 @@ void RqtPcdViewer::on_selectFolderButton_clicked(size_t vpind)
 
   settings.lastFolder = dir_path;
 
-  clearSelectedPcd(vpind);
+  clearSelectedPcd();
 
   QFileSystemModel *model = new QFileSystemModel;
   model->setRootPath(dir_path);
   model->setNameFilterDisables(false);
   model->setNameFilters(QStringList("*.pcd"));
-  fileTreeView[vpind]->setModel(model);
-  fileTreeView[vpind]->setRootIndex(model->index(dir_path));
-  fileTreeView[vpind]->hideColumn(1);
-  fileTreeView[vpind]->hideColumn(2);
-  fileTreeView[vpind]->hideColumn(3);
+  ui.fileTreeView->setModel(model);
+  ui.fileTreeView->setRootIndex(model->index(dir_path));
+  ui.fileTreeView->hideColumn(1);
+  ui.fileTreeView->hideColumn(2);
+  ui.fileTreeView->hideColumn(3);
 
-  if (folder_model[vpind])
-    delete folder_model[vpind];
+  if (folder_model)
+    delete folder_model;
 
-  folder_model[vpind] = model;
+  folder_model = model;
 }
 
-void RqtPcdViewer::on_fileTreeView_doubleClicked(const QModelIndex &index, size_t vpind)
+void RqtPcdViewer::on_fileTreeView_doubleClicked(const QModelIndex &index)
 {
-  loadPcd(index, vpind);
+  loadPcd(index);
 }
 
-void RqtPcdViewer::on_previousPcdButton_clicked(size_t vpind)
+void RqtPcdViewer::on_previousPcdButton_clicked()
 {
-  if (!selected_pcd[vpind].isValid())
+  if (!selected_pcd.isValid())
     return;
 
-  int num_imgs_in_folder = folder_model[vpind]->rowCount(selected_pcd[vpind].parent());
-  int item_row = selected_pcd[vpind].row();
+  int num_imgs_in_folder = folder_model->rowCount(selected_pcd.parent());
+  int item_row = selected_pcd.row();
 
   auto previous_row = [&](int row) { return row > 0 ? row - 1 : num_imgs_in_folder - 1; };
 
   for (int cur_row = previous_row(item_row); cur_row != item_row; cur_row = previous_row(cur_row))
   {
-    QModelIndex index = folder_model[vpind]->index(cur_row, selected_pcd[vpind].column(), selected_pcd[vpind].parent());
-    if (loadPcd(index, vpind))
+    QModelIndex index = folder_model->index(cur_row, selected_pcd.column(), selected_pcd.parent());
+    if (loadPcd(index))
       break;
   }
 }
 
-void RqtPcdViewer::on_nextPcdButton_clicked(size_t vpind)
+void RqtPcdViewer::on_nextPcdButton_clicked()
 {
-  if (!selected_pcd[vpind].isValid())
+  if (!selected_pcd.isValid())
     return;
 
-  int num_imgs_in_folder = folder_model[vpind]->rowCount(selected_pcd[vpind].parent());
-  int item_row = selected_pcd[vpind].row();
+  int num_imgs_in_folder = folder_model->rowCount(selected_pcd.parent());
+  int item_row = selected_pcd.row();
 
   auto next_row = [&](int row) { return (row + 1) % num_imgs_in_folder; };
 
   for (int cur_row = next_row(item_row); cur_row != item_row; cur_row = next_row(cur_row))
   {
-    QModelIndex index = folder_model[vpind]->index(cur_row, selected_pcd[vpind].column(), selected_pcd[vpind].parent());
-    if (loadPcd(index, vpind))
+    QModelIndex index = folder_model->index(cur_row, selected_pcd.column(), selected_pcd.parent());
+    if (loadPcd(index))
       break;
   }
 }
 
-bool RqtPcdViewer::loadPcd(const QModelIndex &index, size_t vpind)
+bool RqtPcdViewer::loadPcd(const QModelIndex &index)
 {
-  if (folder_model[vpind]->isDir(index))
+  if (folder_model->isDir(index))
   {
     ROS_INFO_STREAM("Selection is directory");
     return false;
   }
 
-  QString path = folder_model[vpind]->filePath(index);
+  QString path = folder_model->filePath(index);
 
   pcl::PCLPointCloud2::Ptr cloud(new pcl::PCLPointCloud2);
 
@@ -245,46 +217,46 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index, size_t vpind)
   const Eigen::Vector4f sensor_origin;
   const Eigen::Quaternion<float> sensor_orientation;
 
-  viewer->removeAllPointClouds(viewport[vpind]);
-  viewer->addPointCloud(cloud, cloud_gh, cloud_ch, sensor_origin, sensor_orientation, "pc" + std::to_string(vpind), viewport[vpind]);
+  viewer->removeAllPointClouds(viewport);
+  viewer->addPointCloud(cloud, cloud_gh, cloud_ch, sensor_origin, sensor_orientation, "pc", viewport);
   viewer->initCameraParameters();
-  viewer->resetCameraViewpoint("pc" + std::to_string(vpind));
+  viewer->resetCameraViewpoint("pc");
   viewer->resetCamera();
   viewer->spinOnce(1, true);
   ui.pcdView->update();
 
-  setSelectedPcd(index, vpind);
+  setSelectedPcd(index);
 
-  previousPcdButton[vpind]->setEnabled(true);
-  nextPcdButton[vpind]->setEnabled(true);
-  pcd_loaded[vpind] = true;
+  ui.previousPcdButton->setEnabled(true);
+  ui.nextPcdButton->setEnabled(true);
+  pcd_loaded = true;
 
   ROS_INFO_STREAM("New PCD loaded");
 
   return true;
 }
 
-void RqtPcdViewer::setSelectedPcd(QModelIndex index, size_t vpind)
+void RqtPcdViewer::setSelectedPcd(QModelIndex index)
 {
-  selected_pcd[vpind] = index;
-  int num_imgs_in_folder = folder_model[vpind]->rowCount(selected_pcd[vpind].parent());
-  int item_row = selected_pcd[vpind].row();
-  curPcdLabel[vpind]->setText(QString::asprintf("%d/%d", item_row + 1, num_imgs_in_folder));
-  fileTreeView[vpind]->setCurrentIndex(selected_pcd[vpind]);
+  selected_pcd = index;
+  int num_imgs_in_folder = folder_model->rowCount(selected_pcd.parent());
+  int item_row = selected_pcd.row();
+  ui.curPcdLabel->setText(QString::asprintf("%d/%d", item_row + 1, num_imgs_in_folder));
+  ui.fileTreeView->setCurrentIndex(selected_pcd);
 }
 
-void RqtPcdViewer::clearSelectedPcd(size_t vpind)
+void RqtPcdViewer::clearSelectedPcd()
 {
-  viewer->removeAllPointClouds(viewport[vpind]);
+  viewer->removeAllPointClouds(viewport);
   viewer->spinOnce(1, true);
   ui.pcdView->update();
 
-  selected_pcd[vpind] = QModelIndex();
-  pcd_loaded[vpind] = false;
-  previousPcdButton[vpind]->setEnabled(false);
-  nextPcdButton[vpind]->setEnabled(false);
-  curPcdLabel[vpind]->setText("0/0");
-  fileTreeView[vpind]->clearSelection();
+  selected_pcd = QModelIndex();
+  pcd_loaded = false;
+  ui.previousPcdButton->setEnabled(false);
+  ui.nextPcdButton->setEnabled(false);
+  ui.curPcdLabel->setText("0/0");
+  ui.fileTreeView->clearSelection();
 }
 
 void RqtPcdViewer::pluginSettingsToUi()
