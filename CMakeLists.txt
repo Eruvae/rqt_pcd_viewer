@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.0.2)
 project(rqt_pcd_viewer)
 
 add_compile_options(-std=c++17)
@@ -7,6 +7,7 @@ set (CATKIN_DEPENDENCIES
     roscpp
     rqt_gui
     rqt_gui_cpp
+    sensor_msgs
 )
 
 ## Find catkin macros and libraries

@@ -3,6 +3,7 @@
 #include <pluginlib/class_list_macros.h>
 #include <QFileDialog>
 #include <QInputDialog>
+#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/io/io_exception.h>
 #include <unordered_set>
 
@@ -24,6 +25,8 @@ void RqtPcdViewerWidget::resizeEvent(QResizeEvent *event)
 
 RqtPcdViewer::RqtPcdViewer() :
   rqt_gui_cpp::Plugin(),
+  publishingTimer(this),
+  cloud(nullptr),
   widget(Q_NULLPTR),
   viewer(Q_NULLPTR)
 {
@@ -55,10 +58,16 @@ void RqtPcdViewer::initPlugin(qt_gui_cpp::PluginContext& context)
 
   ui.pcdView->update();
 
+  pointcloud_pub = getNodeHandle().advertise<sensor_msgs::PointCloud2>(ui.topicLineEdit->text().toStdString(), 1);
+
   connect(ui.selectFolderButton, &QAbstractButton::clicked, this, &RqtPcdViewer::on_selectFolderButton_clicked);
   connect(ui.fileTreeView, &QAbstractItemView::doubleClicked, this, &RqtPcdViewer::on_fileTreeView_doubleClicked);
   connect(ui.previousPcdButton, &QAbstractButton::clicked, this, &RqtPcdViewer::on_previousPcdButton_clicked);
   connect(ui.nextPcdButton, &QAbstractButton::clicked, this, &RqtPcdViewer::on_nextPcdButton_clicked);
+  connect(ui.startPublishButton, &QAbstractButton::clicked, this, &RqtPcdViewer::startPublishing);
+  connect(ui.stopPublishButton, &QAbstractButton::clicked, this, &RqtPcdViewer::stopPublishing);
+  connect(ui.topicLineEdit, &QLineEdit::textChanged, this, &RqtPcdViewer::on_topicLineEdit_textChanged);
+  connect(&publishingTimer, &QTimer::timeout, this, &RqtPcdViewer::on_publishingTimer_timeout);
 
 }
 
@@ -121,6 +130,12 @@ void RqtPcdViewer::on_fileTreeView_doubleClicked(const QModelIndex &index)
   loadPcd(index);
 }
 
+void RqtPcdViewer::on_topicLineEdit_textChanged(const QString &topic)
+{
+  pointcloud_pub.shutdown();
+  pointcloud_pub = getNodeHandle().advertise<sensor_msgs::PointCloud2>(topic.toStdString(), 1);
+}
+
 void RqtPcdViewer::on_previousPcdButton_clicked()
 {
   if (!selected_pcd.isValid())
@@ -157,6 +172,37 @@ void RqtPcdViewer::on_nextPcdButton_clicked()
   }
 }
 
+void RqtPcdViewer::on_publishingTimer_timeout()
+{
+  if (ui.rotateFilesCheckBox->isChecked())
+  {
+    if (ui.rotateBackwardsCheckbox->isChecked())  
+      on_previousPcdButton_clicked();
+    else
+      on_nextPcdButton_clicked();
+
+    publishPointcloud();
+  }
+  else if (ui.publishContinouslyCheckBox->isChecked())
+  {
+    publishPointcloud();
+  }
+}
+
+void RqtPcdViewer::startPublishing()
+{
+  publishPointcloud();
+  if (ui.publishContinouslyCheckBox->isChecked() || ui.rotateFilesCheckBox->isChecked())
+  {
+    publishingTimer.start(1000.0 / ui.frequencySpinBox->value());
+  }
+}
+
+void RqtPcdViewer::stopPublishing()
+{
+  publishingTimer.stop();
+}
+
 bool RqtPcdViewer::loadPcd(const QModelIndex &index)
 {
   if (folder_model->isDir(index))
@@ -167,7 +213,7 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index)
 
   QString path = folder_model->filePath(index);
 
-  pcl::PCLPointCloud2::Ptr cloud(new pcl::PCLPointCloud2);
+  cloud.reset(new pcl::PCLPointCloud2);
 
   try
   {
@@ -234,6 +280,18 @@ bool RqtPcdViewer::loadPcd(const QModelIndex &index)
   ROS_INFO_STREAM("New PCD loaded");
 
   return true;
+}
+
+void RqtPcdViewer::publishPointcloud()
+{
+  if (!pcd_loaded)
+    return;
+
+  sensor_msgs::PointCloud2 msg;
+  pcl_conversions::fromPCL(*cloud, msg);
+  msg.header.frame_id = ui.frameLineEdit->text().toStdString();
+  msg.header.stamp = ros::Time::now();
+  pointcloud_pub.publish(msg);
 }
 
 void RqtPcdViewer::setSelectedPcd(QModelIndex index)

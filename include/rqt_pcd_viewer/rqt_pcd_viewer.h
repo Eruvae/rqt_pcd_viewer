@@ -11,6 +11,7 @@
 #include <QStringList>
 
 #include <ros/ros.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <rqt_gui_cpp/plugin.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/io/pcd_io.h>
@@ -61,9 +62,19 @@ private slots:
   void on_fileTreeView_doubleClicked(const QModelIndex &index);
   void on_nextPcdButton_clicked();
   void on_previousPcdButton_clicked();
+  void on_publishingTimer_timeout();
+  void on_topicLineEdit_textChanged(const QString &topic);
+  void startPublishing();
+  void stopPublishing();
 
 private:
+  QTimer publishingTimer;
+
+  pcl::PCLPointCloud2::Ptr cloud;
+  ros::Publisher pointcloud_pub;
+
   bool loadPcd(const QModelIndex &index);
+  void publishPointcloud();
   void setSelectedPcd(QModelIndex index);
   void clearSelectedPcd();
   void pluginSettingsToUi();
