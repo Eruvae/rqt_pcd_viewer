@@ -76,6 +76,8 @@ void RqtPcdViewer::initPlugin(qt_gui_cpp::PluginContext& context)
 void RqtPcdViewer::shutdownPlugin()
 {
   // unregister all publishers here
+  pointcloud_pub.shutdown();
+
   if (folder_model)
     delete folder_model;
 }
